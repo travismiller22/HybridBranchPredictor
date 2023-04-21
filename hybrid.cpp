@@ -12,7 +12,7 @@
 
 using namespace std;
 string::size_type sz;
-long lineNum = 0;
+long lineNumber = 0;
 
 // Standard variables
 long m1;
@@ -24,16 +24,16 @@ string traceFile;
 // File Loading stuff
 
 struct fileContentStruct {
-    string hexAdd;
-    string op;
+    string hAdd;
+    string OpCode;
 };
 
-fileContentStruct* fileData(string hexAdd, string op)
+fileContentStruct* fileData(string hAdd, string OpCode)
 {
-    fileContentStruct* temp = new fileContentStruct();
-    temp->hexAdd = hexAdd;
-    temp->op = op;
-    return temp;
+    fileContentStruct* t = new fileContentStruct();
+    t->hAdd = hAdd;
+    t->OpCode = OpCode;
+    return t;
 }
 
 vector<fileContentStruct*> traceFileContent;
@@ -41,123 +41,116 @@ vector<fileContentStruct*> traceFileContent;
 void readTraceFile(string traceFileName)
 {
     ifstream infile(traceFileName);
-    string hexAdd;
-    string op;
-    while (infile >> hexAdd >> op)
+    string hAdd;
+    string OpCode;
+    while (infile >> hAdd >> OpCode)
     {
-        traceFileContent.push_back(fileData(hexAdd, op));
+        traceFileContent.push_back(fileData(hAdd, OpCode));
     }
 }
 
 // Bimodal
 
 //Bimodal data structures
-map <long, int> bimodTable;
-long bimodAccess = 0;
-long bimodRight = 0;
-long bimodWrong = 0;
+map <long, int> bTable;
+long bmAcc = 0;
+long bmR = 0;
+long bmW = 0;
 
-void initBimodTable() {
+void initbTable() {
     for (long i = 0; i < pow(2, m2); i++) {
-        bimodTable.insert({ i, 4 });
+        bTable.insert({ i, 4 });
     }
 }
 
 //Bimodal index address generator
-long bimodIndexMaker(string hexAdd) {
-    long decAdd = stol(hexAdd, &sz, 16);
-    decAdd = decAdd / long(pow(2, 2));
-    long index = decAdd % long(pow(2, m2));
+long B_Index_Gen(string hAdd) {
+    long dAdd = stol(hAdd, &sz, 16);
+    dAdd = dAdd / long(pow(2, 2));
+    long index = dAdd % long(pow(2, m2));
     return(index);
 }
 
-auto bimodUpdateBranchPredictor = [](auto itr, string op) {
-    long prevVal = itr->second;
-    if (op == "t") {
+auto BM_UpdatePredict = [](auto itr, string OpCode) {
+    long previousValue = itr->second;
+    if (OpCode == "t") {
         itr->second = min(itr->second + 1, 7);
-        if (prevVal >= 4) {
-            bimodRight += 1;
-        }
-        else {
-            bimodWrong += 1;
-        }
+        if (previousValue >= 4)
+            bmR += 1;
+        else
+            bmW += 1;
     }
-    else {
+    else{
         itr->second = max(itr->second - 1, 0);
-        if (prevVal < 4) {
-            bimodRight += 1;
-        }
-        else {
-            bimodWrong += 1;
-        }
+        if (previousValue < 4)
+            bmR += 1;
+        else
+            bmW += 1;
     }
 };
 
-void bimodUpdateStat() {
-    bimodAccess += 1;
-    lineNum += 1;
+void bm_UpdateStat() {
+    bmAcc += 1;
+    lineNumber += 1;
 }
 
-void bimodal(string hexAdd, string op) {
-    //cout<<endl;
-    //cout<<"<Line #"<<lineNum<<">"<<"\t"<<hexAdd<<"\t"<<op<<endl;
-
+void bimodal(string hAdd, string OpCode) {
+   
     //Determine the index
-    long index = bimodIndexMaker(hexAdd);
-    //cout<<"\t"<<"PT index:"<<"\t"<<index<<endl;
-
+    long index = B_Index_Gen(hAdd);
+   
     //Check current prediction
-    auto itr = bimodTable.find(index);
-    int prevVal = itr->second;
-    //cout<<"\t"<<"PT value:"<<"\t"<<prevVal<<endl;
-
-    if (prevVal >= 4) {
-        //cout<<"\t"<<"Prediction:"<<"\t"<<"true"<<endl;
-    }
-    else {
-        //cout<<"\t"<<"Prediction:"<<"\t"<<"false"<<endl;
-    }
+    auto itr = bTable.find(index);
+    int previousValue = itr->second;
+    
+    //if (previousValue >= 4) {
+    //    //cout<<"\t"<<"Prediction:"<<"\t"<<"true"<<endl;
+    //}
+    //else {
+    //    //cout<<"\t"<<"Prediction:"<<"\t"<<"false"<<endl;
+    //}
 
     //Update the branch predictor
-    bimodUpdateBranchPredictor(itr, op);
-    //cout<<"\t"<<"New PT value:"<<"\t"<<itr->second<<endl;
-
+    BM_UpdatePredict(itr, OpCode);
+    
     //Update bimod stat
-    bimodUpdateStat();
+    bm_UpdateStat();
 }
 
 // GShare
 
 //GShare data structures
-string globalPC;
-map <long, int> gShareTable;
-long gShareAccess = 0;
-long gShareRight = 0;
-long gShareWrong = 0;
+string g_pc;
+map <long, int> gs_Table;
+long gs_Acc = 0;
+long gs_Right = 0;
+long gs_Wrong = 0;
 
-void initGlobalPC() {
-    for (int i = 0; i < n; i++) {
-        globalPC.push_back('0');
+void initialize_GPC() {
+    int z = 0;
+    while (z < n) {
+        g_pc.push_back('0');
+        z++;
     }
 }
 
-void initGShareTable() {
+void initialize_GSTable() {
     for (long i = 0; i < pow(2, m1); i++) {
-        gShareTable.insert({ i, 4 });
+        gs_Table.insert({ i, 4 });
     }
 }
 
-long gShareIndexMaker(string hexAdd) {
+long GS_IndexGenerator(string hAdd) {
     //Convert the address into decimal
-    long decAdd = stol(hexAdd, &sz, 16);
+    long dAdd = stol(hAdd, &sz, 16);
     //Discard the last two bits
-    decAdd = decAdd / long(pow(2, 2));
+    dAdd = dAdd / long(pow(2, 2));
     //Separate the last n bits
-    long lastNBits = decAdd % long(pow(2, n));
+    long lastNBits = dAdd % long(pow(2, n));
     //Separate the first m-n bits
-    long firstBits = decAdd / long(pow(2, n));
-    //Xor the last n bits with globalPC
-    long nDec = stol(globalPC, nullptr, 2);
+    long firstBits = dAdd / long(pow(2, n));
+    //Xor the last n bits with g_pc
+    long nDec = stol(g_pc, nullptr, 2);
     long xoredBits = lastNBits ^ nDec;
     //Add the first (m-n) bits in decimal * 2**(m-n) + xored last n bits
     long newAdd = firstBits * long(pow(2, n)) + xoredBits;
@@ -166,166 +159,154 @@ long gShareIndexMaker(string hexAdd) {
     return(index);
 }
 
-void gShareUpdateStat() {
-    gShareAccess += 1;
-    lineNum += 1;
+void gShareUpdInfo() { //Updates the statistcs from the gshare prediction
+    gs_Acc += 1;
+    lineNumber += 1;
 }
 
-auto gShareUpdateBranchPredictor = [](auto itr, string op) {
+auto gShareUpdateBP = [](auto itr, string OpCode) {
     //Update the branch predictor
-    long prevVal = itr->second;
-    if (op == "t") {
+    long previousValue = itr->second;
+    if (OpCode == "t") {
         itr->second = min(itr->second + 1, 7);
-        if (prevVal >= 4) {
-            gShareRight += 1;
+        if (previousValue >= 4) {
+            gs_Right += 1;
         }
         else {
-            gShareWrong += 1;
+            gs_Wrong += 1;
         }
     }
     else {
         itr->second = max(itr->second - 1, 0);
-        if (prevVal < 4) {
-            gShareRight += 1;
+        if (previousValue < 4) {
+            gs_Right += 1;
         }
         else {
-            gShareWrong += 1;
+            gs_Wrong += 1;
         }
     }
 };
 
-void globalPCUpdate(string op) {
-    string newGlobalPC;
-    if (op == "t") {
-        newGlobalPC.push_back('1');
+void g_PCUpdate(string OpCode) { //Global Update - updates the global history register
+    string new_gPC;
+    if (OpCode == "t") {
+        new_gPC.push_back('1');
     }
     else {
-        newGlobalPC.push_back('0');
+        new_gPC.push_back('0');
     }
-    for (auto itr = globalPC.begin(); itr != globalPC.end(); itr++) {
-        newGlobalPC.push_back(*itr);
+    for (auto itr = g_pc.begin(); itr != g_pc.end(); itr++) {
+        new_gPC.push_back(*itr);
     }
-    newGlobalPC.pop_back();
-    globalPC = newGlobalPC;
+    new_gPC.pop_back();
+    g_pc = new_gPC;
     //cout<<"\t"<<"BHR now set to:"<<"\t";
-    for (auto itr = globalPC.begin(); itr != globalPC.end(); itr++) {
+    for (auto itr = g_pc.begin(); itr != g_pc.end(); itr++) {
         //cout<<"["<<*itr<<"]";
     }
     //cout<<endl;
 }
 
-void gShare(string hexAdd, string op) {
+void gShare(string hAdd, string OpCode) {
 
     //cout<<endl;
-    //cout<<"<Line #"<<lineNum<<">"<<"\t"<<hexAdd<<"\t"<<op<<endl;
+    //cout<<"<Line #"<<lineNum<<">"<<"\t"<<hAdd<<"\t"<<OpCode<<endl;
 
-    long index = gShareIndexMaker(hexAdd);
+    long index = GS_IndexGenerator(hAdd);
     //cout<<"\t"<<"PT index:"<<"\t"<<index<<endl;
 
     //Check current prediction
-    auto itr = gShareTable.find(index);
-    int prevVal = itr->second;
+    auto itr = gs_Table.find(index);
+    int previousValue = itr->second;
 
-    //cout<<"\t"<<"PT value:"<<"\t"<<prevVal<<endl;
-    if (prevVal >= 4) {
+    //cout<<"\t"<<"PT value:"<<"\t"<<previousValue<<endl;
+    if (previousValue >= 4) {
         //cout<<"\t"<<"Prediction:"<<"\t"<<"true"<<endl;
     }
     else {
         //cout<<"\t"<<"Prediction:"<<"\t"<<"false"<<endl;
     }
 
-    gShareUpdateBranchPredictor(itr, op);
+    gShareUpdateBP(itr, OpCode);
     //cout<<"\t"<<"New PT value:"<<"\t"<<itr->second<<endl;
 
-    globalPCUpdate(op);
+    g_PCUpdate(OpCode);
 
-    gShareUpdateStat();
+    gShareUpdInfo();
 }
 
 // Hybrid
 
 //Hybrid data structures
-map <long, int> hybridTable;
-long hybridAccess = 0;
-long hybridRight = 0;
-long hybridWrong = 0;
+map <long, int> h_Table;
+long h_Acc = 0;
+long h_Wrong = 0;
+long h_Right = 0;
 
-void initHybridTable() {
-    for (long i = 0; i < pow(2, k); i++) {
-        hybridTable.insert({ i, 1 });
+void intialize_HTable() {
+    long t = 0;
+    while (t < pow(2, k)) {
+        h_Table.insert({ t, 1 });
+        t++;
     }
 }
 
-void hybrid(string hexAdd, string op) {
-    //cout<<endl;
-    //cout<<"<Line #"<<lineNum<<">"<<"\t"<<hexAdd<<"\t"<<op<<endl;
+void hybrid(string hAdd, string OpCode) {
 
     //Obtain index from bimod and gshare
-    long bimodIndex = bimodIndexMaker(hexAdd);
-    long gShareIndex = gShareIndexMaker(hexAdd);
-    long decAdd = stoi(hexAdd, &sz, 16);
-    decAdd = decAdd / long(pow(2, 2));
-    long hybridIndex = decAdd % long(pow(2, k));
+    long bimodIndex = B_Index_Gen(hAdd);
+    long gShareIndex = GS_IndexGenerator(hAdd);
+    long dAdd = stoi(hAdd, &sz, 16);
+    dAdd = dAdd / long(pow(2, 2));
+    long hybridIndex = dAdd % long(pow(2, k));
 
-    auto hybridItr = hybridTable.find(hybridIndex);
-    auto bimodItr = bimodTable.find(bimodIndex);
-    auto gShareItr = gShareTable.find(gShareIndex);
+    auto hybridItr = h_Table.find(hybridIndex);
+    auto bimodItr = bTable.find(bimodIndex);
+    auto gShareItr = gs_Table.find(gShareIndex);
 
     int bimodPrevVal = bimodItr->second;
     int gSharePrevVal = gShareItr->second;
-    //int hybridPrevVal = hybridItr->second;
-
-    //cout<<"\t"<<"CT index:"<<"\t"<<hybridItr->first<<endl;
-    //cout<<"\t"<<"CT value:"<<"\t"<<hybridItr->second<<endl;
-    //cout<<"\t"<<"bimodal-PT index:"<<"\t"<<bimodItr->first<<endl;
-    //cout<<"\t"<<"bimodal-PT value:"<<"\t"<<bimodItr->second<<endl;
-    //cout<<"\t"<<"gshare-PT index:"<<"\t"<<gShareItr->first<<endl;
-    //cout<<"\t"<<"gshare-PT value:"<<"\t"<<gShareItr->second<<endl;
 
     if (hybridItr->second >= 2) {
         //GShare
-        if (gSharePrevVal >= 4) {
-            //cout<<"\t"<<"Prediction:"<<"\t"<<"true"<<endl;
-        }
-        else {
-            //cout<<"\t"<<"Prediction:"<<"\t"<<"false"<<endl;
-        }
-        gShareUpdateBranchPredictor(gShareItr, op);
+        //if (gSharePrevVal >= 4) {
+        //    //cout<<"\t"<<"Prediction:"<<"\t"<<"true"<<endl;
+        //}
+        //else {
+        //    //cout<<"\t"<<"Prediction:"<<"\t"<<"false"<<endl;
+        //}
+        gShareUpdateBP(gShareItr, OpCode);
         //cout<<"\t"<<"New gshare-PT value:"<<"\t"<<gShareItr->second<<endl;
-        globalPCUpdate(op);
-        if ((op == "t" && gSharePrevVal >= 4) || (op == "n" && gSharePrevVal < 4)) {
-            hybridRight += 1;
-        }
-        else {
-            hybridWrong += 1;
-        }
+        g_PCUpdate(OpCode);
+        if ((OpCode == "t" && gSharePrevVal >= 4) || (OpCode == "n" && gSharePrevVal < 4))
+            h_Right += 1;
+        else 
+            h_Wrong += 1;
     }
     else {
         //Bimod
-        if (bimodPrevVal >= 4) {
-            //cout<<"\t"<<"Prediction:"<<"\t"<<"true"<<endl;
-        }
-        else {
-            //cout<<"\t"<<"Prediction:"<<"\t"<<"false"<<endl;
-        }
-        bimodUpdateBranchPredictor(bimodItr, op);
+        //if (bimodPrevVal >= 4) {
+        //    //cout<<"\t"<<"Prediction:"<<"\t"<<"true"<<endl;
+        //}
+        //else {
+        //    //cout<<"\t"<<"Prediction:"<<"\t"<<"false"<<endl;
+        //}
+        BM_UpdatePredict(bimodItr, OpCode);
         //cout<<"\t"<<"New bimodal-PT value:"<<"\t"<<bimodItr->second<<endl;
-        globalPCUpdate(op);
-        if ((op == "t" && bimodPrevVal >= 4) || (op == "n" && bimodPrevVal < 4)) {
-            hybridRight += 1;
-        }
-        else {
-            hybridWrong += 1;
-        }
+        g_PCUpdate(OpCode);
+        if ((OpCode == "t" && bimodPrevVal >= 4) || (OpCode == "n" && bimodPrevVal < 4)) 
+            h_Right += 1;
+        else
+            h_Wrong += 1;
+        
     }
 
-    if (op == "t") {
-        if (gSharePrevVal >= 4 && bimodPrevVal < 4) {
+    if (OpCode == "t") {
+        if (gSharePrevVal >= 4 && bimodPrevVal < 4)
             hybridItr->second = min(hybridItr->second + 1, 3);
-        }
-        if (gSharePrevVal < 4 && bimodPrevVal >= 4) {
+        
+        if (gSharePrevVal < 4 && bimodPrevVal >= 4)
             hybridItr->second = max(hybridItr->second - 1, 0);
-        }
     }
     else {
         if (gSharePrevVal < 4 && bimodPrevVal >= 4) {
@@ -338,8 +319,8 @@ void hybrid(string hexAdd, string op) {
 
     //cout<<"\t"<<"New CT value:"<<"\t"<<hybridItr->second<<endl;
 
-    hybridAccess += 1;
-    lineNum += 1;
+    h_Acc += 1;
+    lineNumber += 1;
 }
 
 int main(int argc, char* argv[]) {
@@ -356,7 +337,7 @@ int main(int argc, char* argv[]) {
         traceFile = argv[3];
         cout << "COMMAND" << endl;
         cout << "./sim bimodal " << m2 << " " << traceFile << endl; //m2=12
-        initBimodTable();
+        initbTable();
     }
 
     if (opGShare.compare(opCode) == 0) {
@@ -367,8 +348,8 @@ int main(int argc, char* argv[]) {
         traceFile = argv[4];
         cout << "COMMAND" << endl;
         cout << "./sim gshare " << m1 << " " << n << " " << traceFile << endl; //m1=9, n=3
-        initGlobalPC();
-        initGShareTable();
+        initialize_GPC();
+        initialize_GSTable();
     }
 
     if (opHybrid.compare(opCode) == 0) {
@@ -382,10 +363,10 @@ int main(int argc, char* argv[]) {
         n = stol(strN, &sz);
         m2 = stol(strM2, &sz);
         traceFile = argv[6];
-        initBimodTable();
-        initGlobalPC();
-        initGShareTable();
-        initHybridTable();
+        initbTable();
+        initialize_GPC();
+        initialize_GSTable();
+        intialize_HTable();
         cout << "COMMAND" << endl;
         cout << "./sim hybrid " << k << " " << m1 << " " << n << " " << m2 << " " << traceFile << endl;
     }
@@ -393,63 +374,63 @@ int main(int argc, char* argv[]) {
     readTraceFile(traceFile);
 
     for (unsigned long filePointer = 0; filePointer < traceFileContent.size(); filePointer++) {
-        string hexAdd = traceFileContent[filePointer]->hexAdd;
-        string op = traceFileContent[filePointer]->op;
+        string hAdd = traceFileContent[filePointer]->hAdd;
+        string OpCode = traceFileContent[filePointer]->OpCode;
 
         if (opBimodal.compare(opCode) == 0) {
-            bimodal(hexAdd, op);
+            bimodal(hAdd, OpCode);
         }
 
         if (opGShare.compare(opCode) == 0) {
-            gShare(hexAdd, op);
+            gShare(hAdd, OpCode);
         }
 
         if (opHybrid.compare(opCode) == 0) {
-            hybrid(hexAdd, op);
+            hybrid(hAdd, OpCode);
         }
     }
 
     if (opBimodal.compare(opCode) == 0) {
         cout << "OUTPUT" << endl;
-        cout << "number of predictions:" << "\t" << "\t" << bimodAccess << endl;
-        cout << "number of mispredictions:" << "\t" << bimodWrong << endl;
+        cout << "number of predictions:" << "\t" << "\t" << bmAcc << endl;
+        cout << "number of mispredictions:" << "\t" << bmW << endl;
         cout << std::fixed;
-        cout << "misprediction rate:" << "\t" << "\t" << std::setprecision(2) << float(bimodWrong) / float(bimodAccess) * 100 << "%" << endl;
-        cout << "FINAL BIMODAL CONTENTS" << endl;
-        for (auto itr = bimodTable.begin(); itr != bimodTable.end(); ++itr) {
+        cout << "misprediction rate:" << "\t" << "\t" << std::setprecision(2) << float(bmW) / float(bmAcc) * 100 << "%" << endl;
+        /*cout << "FINAL BIMODAL CONTENTS" << endl;
+        for (auto itr = bTable.begin(); itr != bTable.end(); ++itr) {
             cout << itr->first << '\t' << itr->second << endl;
-        }
+        }*/
     }
 
     if (opGShare.compare(opCode) == 0) {
         cout << "OUTPUT" << endl;
-        cout << "number of predictions:" << "\t" << "\t" << gShareAccess << endl;
-        cout << "number of mispredictions:" << "\t" << gShareWrong << endl;
+        cout << "number of predictions:" << "\t" << "\t" << gs_Acc << endl;
+        cout << "number of mispredictions:" << "\t" << gs_Wrong << endl;
         cout << std::fixed;
-        cout << "misprediction rate:" << "\t" << "\t" << std::setprecision(2) << float(gShareWrong) / float(gShareAccess) * 100 << "%" << endl;
+        cout << "misprediction rate:" << "\t" << "\t" << std::setprecision(2) << float(gs_Wrong) / float(gs_Acc) * 100 << "%" << endl;
         cout << "FINAL GSHARE CONTENTS" << endl;
-        for (auto itr = gShareTable.begin(); itr != gShareTable.end(); ++itr) {
+        /*for (auto itr = gs_Table.begin(); itr != gs_Table.end(); ++itr) {
             cout << itr->first << '\t' << itr->second << endl;
-        }
+        }*/
     }
 
     if (opHybrid.compare(opCode) == 0) {
         cout << "OUTPUT" << endl;
-        cout << "number of predictions:" << "\t" << "\t" << hybridAccess << endl;
-        cout << "number of mispredictions:" << "\t" << hybridWrong << endl;
+        cout << "number of predictions:" << "\t" << "\t" << h_Acc << endl;
+        cout << "number of mispredictions:" << "\t" << h_Wrong << endl;
         cout << std::fixed;
-        cout << "misprediction rate:" << "\t" << "\t" << std::setprecision(2) << float(hybridWrong) / float(hybridAccess) * 100 << "%" << endl;
-        cout << "FINAL CHOOSER CONTENTS" << endl;
-        for (auto itr = hybridTable.begin(); itr != hybridTable.end(); ++itr) {
+        cout << "misprediction rate:" << "\t" << "\t" << std::setprecision(2) << float(h_Wrong) / float(h_Acc) * 100 << "%" << endl;
+        /*cout << "FINAL CHOOSER CONTENTS" << endl;
+        for (auto itr = h_Table.begin(); itr != h_Table.end(); ++itr) {
             cout << itr->first << '\t' << itr->second << endl;
         }
         cout << "FINAL GSHARE CONTENTS" << endl;
-        for (auto itr = gShareTable.begin(); itr != gShareTable.end(); ++itr) {
+        for (auto itr = gs_Table.begin(); itr != gs_Table.end(); ++itr) {
             cout << itr->first << '\t' << itr->second << endl;
         }
         cout << "FINAL BIMODAL CONTENTS" << endl;
-        for (auto itr = bimodTable.begin(); itr != bimodTable.end(); ++itr) {
+        for (auto itr = bTable.begin(); itr != bTable.end(); ++itr) {
             cout << itr->first << '\t' << itr->second << endl;
-        }
+        }*/
     }
 }
