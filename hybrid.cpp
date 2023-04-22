@@ -4,7 +4,6 @@
 #include <sstream>
 #include <fstream>
 #include <cmath>
-//#include <bits/stdc++.h>
 #include <algorithm>
 #include <vector>
 #include <bitset>
@@ -14,20 +13,20 @@ using namespace std;
 string::size_type sz;
 long lineNumber = 0;
 
-// Standard variables
+//Standard variables for Input
 long m1;
 long m2;
 long k;
 long n;
 string traceFile;
 
-// File Loading stuff
-
+//File Loading
 struct fileContentStruct {
     string hAdd;
     string OpCode;
 };
 
+//Returns a pointer to a fileContentStruct instance
 fileContentStruct* fileData(string hAdd, string OpCode)
 {
     fileContentStruct* t = new fileContentStruct();
@@ -36,34 +35,34 @@ fileContentStruct* fileData(string hAdd, string OpCode)
     return t;
 }
 
+//Defines a vector to store fileContentStruct instances read from the trace file
 vector<fileContentStruct*> traceFileContent;
 
+//Takes a trace file name as input and reads in each line as hexAdd and opCode values, adding them to traceFileContent as fileContentStruct instances
 void readTraceFile(string traceFileName)
 {
     ifstream infile(traceFileName);
     string hAdd;
     string OpCode;
     while (infile >> hAdd >> OpCode)
-    {
         traceFileContent.push_back(fileData(hAdd, OpCode));
-    }
 }
 
-// Bimodal
-
-//Bimodal data structures
+// ***BIMODAL***
+//Bimodal data structures that store the state of the bimodal branch predictor
 map <long, int> bTable;
 long bmAcc = 0;
 long bmR = 0;
 long bmW = 0;
 
+//Initializes Bimodal Table with 4 as the default value for each index
 void initbTable() {
-    for (long i = 0; i < pow(2, m2); i++) {
+    for (long i = 0; i < pow(2, m2); i++) 
         bTable.insert({ i, 4 });
-    }
 }
 
 //Bimodal index address generator
+//Takes a hexiAddr value as input, converts it to decimal, discards the last two bits, and returns the index into Bimodal Table for the address.
 long B_Index_Gen(string hAdd) {
     long dAdd = stol(hAdd, &sz, 16);
     dAdd = dAdd / long(pow(2, 2));
@@ -71,12 +70,14 @@ long B_Index_Gen(string hAdd) {
     return(index);
 }
 
+//Lambda function that takes an iterator to a Bimodal Table entry and an opCode value as input,
+//updates the entry based on the opCode value, and updates right (bmR) and wrong (bmW) accordingly.
 auto BM_UpdatePredict = [](auto itr, string OpCode) {
     long previousValue = itr->second;
     if (OpCode == "t") {
         itr->second = min(itr->second + 1, 7);
         if (previousValue >= 4)
-            bmR += 1;
+            bmR += 1; 
         else
             bmW += 1;
     }
@@ -89,43 +90,42 @@ auto BM_UpdatePredict = [](auto itr, string OpCode) {
     }
 };
 
+//Increments Bimodal Table Accesses and Line Number by 1
 void bm_UpdateStat() {
     bmAcc += 1;
     lineNumber += 1;
 }
 
+
 void bimodal(string hAdd, string OpCode) {
    
-    //Determine the index
+    //Determine the index for the address
     long index = B_Index_Gen(hAdd);
    
-    //Check current prediction
+    //Check current prediction by getting the value of the Bimodal Table entry at index
     auto itr = bTable.find(index);
     int previousValue = itr->second;
-    
-    //if (previousValue >= 4) {
-    //    //cout<<"\t"<<"Prediction:"<<"\t"<<"true"<<endl;
-    //}
-    //else {
-    //    //cout<<"\t"<<"Prediction:"<<"\t"<<"false"<<endl;
-    //}
 
     //Update the branch predictor
     BM_UpdatePredict(itr, OpCode);
     
-    //Update bimod stat
+    //Update Bimodal stats
     bm_UpdateStat();
 }
 
-// GShare
-
+//***GShare***
 //GShare data structures
+//Define a string variable called g_pc to store the global history of branch outcomes for GShare
+//Define a map called gs_Table to store the state of the GShare branch predictor.
+//Define variables called gs_Acc, gs_Right, and gs_Wrong to keep track of the number of accesses, correct predictions,
+//and incorrect predictions respectively for the GShare predictor.
 string g_pc;
 map <long, int> gs_Table;
 long gs_Acc = 0;
 long gs_Right = 0;
 long gs_Wrong = 0;
 
+//Initializes g_pc to a string of n zeros.
 void initialize_GPC() {
     int z = 0;
     while (z < n) {
@@ -134,12 +134,13 @@ void initialize_GPC() {
     }
 }
 
+//Initializes  GShare Table with 4 as the default value for each index.
 void initialize_GSTable() {
-    for (long i = 0; i < pow(2, m1); i++) {
+    for (long i = 0; i < pow(2, m1); i++)
         gs_Table.insert({ i, 4 });
-    }
 }
 
+//Takes a hexidAddr (hAdd) value as input and returns the index into gShareTable for the address using the GShare algorithm.
 long GS_IndexGenerator(string hAdd) {
     //Convert the address into decimal
     long dAdd = stol(hAdd, &sz, 16);
@@ -159,31 +160,30 @@ long GS_IndexGenerator(string hAdd) {
     return(index);
 }
 
-void gShareUpdInfo() { //Updates the statistcs from the gshare prediction
+//Increments gShareAccess and lineNumber for each access.
+void gShareUpdInfo() {
     gs_Acc += 1;
     lineNumber += 1;
 }
 
+//Lambda function that takes an iterator to a gShareTable entry and an opCode value as input, updates the entry based on the opCode value,
+//and updates right (gs_Rright) and wrong (gs_Wrong) accordingly.
 auto gShareUpdateBP = [](auto itr, string OpCode) {
     //Update the branch predictor
     long previousValue = itr->second;
     if (OpCode == "t") {
         itr->second = min(itr->second + 1, 7);
-        if (previousValue >= 4) {
+        if (previousValue >= 4)
             gs_Right += 1;
-        }
-        else {
+        else
             gs_Wrong += 1;
-        }
     }
     else {
         itr->second = max(itr->second - 1, 0);
-        if (previousValue < 4) {
+        if (previousValue < 4)
             gs_Right += 1;
-        }
-        else {
+        else
             gs_Wrong += 1;
-        }
     }
 };
 
@@ -201,42 +201,29 @@ void g_PCUpdate(string OpCode) { //Global Update - updates the global history re
     new_gPC.pop_back();
     g_pc = new_gPC;
     //cout<<"\t"<<"BHR now set to:"<<"\t";
-    for (auto itr = g_pc.begin(); itr != g_pc.end(); itr++) {
-        //cout<<"["<<*itr<<"]";
-    }
+    //for (auto itr = g_pc.begin(); itr != g_pc.end(); itr++) {
+    //    //cout<<"["<<*itr<<"]";
+    //}
     //cout<<endl;
 }
 
+//Determine the index for the address using GS_IndexGenerator.
+//Check the current prediction by getting the value of the gShareTable entry at the index.
+//Update the branch predictor using gShareUpdateBP.
+//Update the global history using the opCode value.
 void gShare(string hAdd, string OpCode) {
-
-    //cout<<endl;
-    //cout<<"<Line #"<<lineNum<<">"<<"\t"<<hAdd<<"\t"<<OpCode<<endl;
-
     long index = GS_IndexGenerator(hAdd);
-    //cout<<"\t"<<"PT index:"<<"\t"<<index<<endl;
 
     //Check current prediction
     auto itr = gs_Table.find(index);
     int previousValue = itr->second;
 
-    //cout<<"\t"<<"PT value:"<<"\t"<<previousValue<<endl;
-    if (previousValue >= 4) {
-        //cout<<"\t"<<"Prediction:"<<"\t"<<"true"<<endl;
-    }
-    else {
-        //cout<<"\t"<<"Prediction:"<<"\t"<<"false"<<endl;
-    }
-
     gShareUpdateBP(itr, OpCode);
-    //cout<<"\t"<<"New PT value:"<<"\t"<<itr->second<<endl;
-
     g_PCUpdate(OpCode);
-
     gShareUpdInfo();
 }
 
-// Hybrid
-
+//***Hybrid***
 //Hybrid data structures
 map <long, int> h_Table;
 long h_Acc = 0;
@@ -250,7 +237,7 @@ void intialize_HTable() {
         t++;
     }
 }
-
+ 
 void hybrid(string hAdd, string OpCode) {
 
     //Obtain index from bimod and gshare
@@ -260,23 +247,20 @@ void hybrid(string hAdd, string OpCode) {
     dAdd = dAdd / long(pow(2, 2));
     long hybridIndex = dAdd % long(pow(2, k));
 
+    //Search for the corresponding values using the obtained indices, in the Hybrid, Bimodal and GShare Table maps.
     auto hybridItr = h_Table.find(hybridIndex);
     auto bimodItr = bTable.find(bimodIndex);
     auto gShareItr = gs_Table.find(gShareIndex);
 
+    //Retrieve previous prediction values
     int bimodPrevVal = bimodItr->second;
     int gSharePrevVal = gShareItr->second;
 
+    //Depending on the value of hybridItr->second (which corresponds to the hybridIndex key in the h_Table map), 
+    //the GShare or Bimodal Table is updated accordingly
     if (hybridItr->second >= 2) {
-        //GShare
-        //if (gSharePrevVal >= 4) {
-        //    //cout<<"\t"<<"Prediction:"<<"\t"<<"true"<<endl;
-        //}
-        //else {
-        //    //cout<<"\t"<<"Prediction:"<<"\t"<<"false"<<endl;
-        //}
+        //GShare n>2
         gShareUpdateBP(gShareItr, OpCode);
-        //cout<<"\t"<<"New gshare-PT value:"<<"\t"<<gShareItr->second<<endl;
         g_PCUpdate(OpCode);
         if ((OpCode == "t" && gSharePrevVal >= 4) || (OpCode == "n" && gSharePrevVal < 4))
             h_Right += 1;
@@ -285,14 +269,7 @@ void hybrid(string hAdd, string OpCode) {
     }
     else {
         //Bimod
-        //if (bimodPrevVal >= 4) {
-        //    //cout<<"\t"<<"Prediction:"<<"\t"<<"true"<<endl;
-        //}
-        //else {
-        //    //cout<<"\t"<<"Prediction:"<<"\t"<<"false"<<endl;
-        //}
         BM_UpdatePredict(bimodItr, OpCode);
-        //cout<<"\t"<<"New bimodal-PT value:"<<"\t"<<bimodItr->second<<endl;
         g_PCUpdate(OpCode);
         if ((OpCode == "t" && bimodPrevVal >= 4) || (OpCode == "n" && bimodPrevVal < 4)) 
             h_Right += 1;
@@ -300,7 +277,6 @@ void hybrid(string hAdd, string OpCode) {
             h_Wrong += 1;
         
     }
-
     if (OpCode == "t") {
         if (gSharePrevVal >= 4 && bimodPrevVal < 4)
             hybridItr->second = min(hybridItr->second + 1, 3);
@@ -316,9 +292,6 @@ void hybrid(string hAdd, string OpCode) {
             hybridItr->second = max(hybridItr->second - 1, 0);
         }
     }
-
-    //cout<<"\t"<<"New CT value:"<<"\t"<<hybridItr->second<<endl;
-
     h_Acc += 1;
     lineNumber += 1;
 }
@@ -377,17 +350,12 @@ int main(int argc, char* argv[]) {
         string hAdd = traceFileContent[filePointer]->hAdd;
         string OpCode = traceFileContent[filePointer]->OpCode;
 
-        if (opBimodal.compare(opCode) == 0) {
+        if (opBimodal.compare(opCode) == 0)
             bimodal(hAdd, OpCode);
-        }
-
-        if (opGShare.compare(opCode) == 0) {
+        if (opGShare.compare(opCode) == 0)
             gShare(hAdd, OpCode);
-        }
-
-        if (opHybrid.compare(opCode) == 0) {
+        if (opHybrid.compare(opCode) == 0)
             hybrid(hAdd, OpCode);
-        }
     }
 
     if (opBimodal.compare(opCode) == 0) {
